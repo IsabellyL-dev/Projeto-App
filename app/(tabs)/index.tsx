@@ -1,98 +1,138 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import uuid from 'react-native-uuid';
+import dayjs from 'dayjs';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+type Tarefa = {
+  id: string;
+  titulo: string;
+  concluida: boolean;
+  criadaEm: string;
+};
 
-export default function HomeScreen() {
+const STORAGE_KEY = '@tarefas';
+
+export default function ListaDeAfazeres() {
+  const [tarefas, setTarefas] = useState<Tarefa[]>([]);
+  const [texto, setTexto] = useState('');
+
+  useEffect(() => {
+    carregarTarefas();
+  }, []);
+
+  useEffect(() => {
+    salvarTarefas(tarefas);
+  }, [tarefas]);
+
+  async function carregarTarefas() {
+    try {
+      const dados = await AsyncStorage.getItem(STORAGE_KEY);
+      if (dados) setTarefas(JSON.parse(dados));
+    } catch (error) {
+      console.log('Erro ao carregar tarefas:', error);
+    }
+  }
+
+  async function salvarTarefas(lista: Tarefa[]) {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(lista));
+    } catch (error) {
+      console.log('Erro ao salvar tarefas:', error);
+    }
+  }
+
+  function adicionarTarefa() {
+    if (texto.trim() === '') return;
+
+    const novaTarefa = {
+      id: uuid.v4(),
+      titulo: texto,
+      concluida: false,
+      criadaEm: new Date().toISOString(),
+    };
+
+    setTarefas([novaTarefa, ...tarefas]);
+    setTexto('');
+  }
+
+  function concluirTarefa(id: string) {
+    setTarefas(tarefas.map(tarefa =>
+      tarefa.id === id ? { ...tarefa, concluida: !tarefa.concluida } : tarefa
+    ));
+  }
+
+  function excluirTarefa(id: string) {
+    setTarefas(tarefas.filter(tarefa => tarefa.id !== id));
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <View style={styles.container}>
+      <Text style={styles.titulo}>Minhas Tarefas</Text>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      <View style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Nova tarefa..."
+          value={texto}
+          onChangeText={setTexto}
+        />
+        <TouchableOpacity onPress={adicionarTarefa} style={styles.botaoAdicionar}>
+          <Ionicons name="add-circle" size={36} color="#cdb4db" />
+        </TouchableOpacity>
+      </View>
+
+      <FlatList
+        data={tarefas}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.tarefaItem}>
+            <TouchableOpacity onPress={() => concluirTarefa(item.id)} style={styles.tarefaConteudo}>
+              <Ionicons
+                name={item.concluida ? 'checkmark-circle' : 'ellipse-outline'}
+                size={24}
+                color={item.concluida ? '#cdb4db' : '#999'}
+              />
+              <View style={styles.tarefaTextos}>
+                <Text style={[styles.tarefaTitulo, item.concluida && styles.tarefaConcluida]}>
+                  {item.titulo}
+                </Text>
+                <Text style={styles.tarefaData}>
+                  Criada em {dayjs(item.criadaEm).format('DD/MM/YYYY [às] HH:mm')}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => excluirTarefa(item.id)}>
+              <Ionicons name="trash-outline" size={22} color="#E53935" />
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: { flex: 1, padding: 20, paddingTop: 60, backgroundColor: '#fff' },
+  titulo: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  input: { flex: 1, borderWidth: 1, borderColor: '#ffc8dd', borderRadius: 8, padding: 10, marginRight: 8 },
+  botaoAdicionar: { justifyContent: 'center'},
+  tarefaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    backgroundColor: '#ffc8dd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 10,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
+  tarefaConteudo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  tarefaTextos: { marginLeft: 10 },
+  tarefaTitulo: { fontSize: 16 },
+  tarefaConcluida: { textDecorationLine: 'line-through', color: '#999' },
+  tarefaData: { fontSize: 12, color: '#777', marginTop: 2 },
 });
