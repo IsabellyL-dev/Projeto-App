@@ -1,3 +1,4 @@
+import { Link } from 'expo-router';
 import { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -71,6 +72,9 @@ export default function ListaDeAfazeres() {
   return (
     <View style={styles.container}>
       <Text style={styles.titulo}>Minhas Tarefas</Text>
+      <Link href="/cadastro" style={{ marginBottom: 16, color: '#cdb4db', fontWeight: '600' }}>
+  Ir para Cadastro →
+</Link>
 
       <View style={styles.inputContainer}>
         <TextInput
