@@ -4,6 +4,8 @@ type Props = {
   onPress: () => void;
 };
 
+
+
 export default function BotaoCadastrar({ onPress }: Props) {
   return (
     <Pressable
