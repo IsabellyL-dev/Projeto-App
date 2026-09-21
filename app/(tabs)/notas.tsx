@@ -1,18 +1,18 @@
-import { Link } from 'expo-router';
-import { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import uuid from 'react-native-uuid';
-import dayjs from 'dayjs';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Link, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { FlatList, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import uuid from 'react-native-uuid';
+import { NotaCard } from '../../components/Notas/CardNotas';
 
 type Nota = {
   id: string;
   titulo: string;
   conteudo: string;
   criadaEm: string;
-};
+}
 
 const STORAGE_KEY = '@notas';
 
@@ -20,6 +20,8 @@ export default function BlocoDeNotas() {
   const [notas, setNotas] = useState<Nota[]>([]);
   const [titulo, setTitulo] = useState('');
   const [conteudo, setConteudo] = useState('');
+  const [modoCompacto, setModoCompacto] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     carregarNotas();
@@ -65,11 +67,32 @@ export default function BlocoDeNotas() {
     setNotas(notas.filter(nota => nota.id !== id));
   }
 
+// Navegação programática (useRouter): usada dentro da função abrirDetalhes.
+// A navegação acontece como consequência da lógica do código, disparada
+// pelo onPress do TouchableOpacity "Abrir via useRouter".
+ function abrirDetalhes(id: string) {
+  router.push({
+    pathname: '/detalhes/[id]',
+    params: { id },
+  });
+}
+
   return (
     <View style={styles.container}>
       <Link href="/" style={styles.link}>← Voltar para Tarefas</Link>
 
       <Text style={styles.titulo}>Bloco de Notas</Text>
+
+      <View style={styles.switchContainer}>
+        <Text>Ocultar Conteúdo das Notas</Text>
+        <Switch
+          value={modoCompacto}
+          onValueChange={setModoCompacto}
+          trackColor={{ false: '#ffc8dd', true: '#cdb4db' }}
+          thumbColor={modoCompacto ? '#cdb4db' : '#fff'}
+          ios_backgroundColor="#ffc8dd"
+        />
+      </View>
 
       <View style={styles.formNota}>
         <TextInput
@@ -95,19 +118,31 @@ export default function BlocoDeNotas() {
         data={notas}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.notaItem}>
-            <View style={styles.notaCabecalho}>
-              <Text style={styles.notaTitulo}>{item.titulo}</Text>
-              <TouchableOpacity onPress={() => excluirNota(item.id)}>
-                <Ionicons name="trash-outline" size={20} color="#E53935" />
-              </TouchableOpacity>
-            </View>
-            {item.conteudo !== '' && (
-              <Text style={styles.notaConteudo}>{item.conteudo}</Text>
-            )}
-            <Text style={styles.notaData}>
-              {dayjs(item.criadaEm).format('DD/MM/YYYY [às] HH:mm')}
-            </Text>
+          <Animated.View entering={FadeIn} exiting={FadeOut}>
+            {/* Navegação declarativa (Link): o próprio componente já sabe
+            para onde navegar via href, sem precisar de uma função */}
+           <Link
+            href={{
+                pathname: '/detalhes/[id]',
+                params: { id: item.id },
+            }}
+            asChild
+            >
+            <TouchableOpacity>
+                <NotaCard
+                titulo={item.titulo}
+                conteudo={item.conteudo}
+                criadaEm={item.criadaEm}
+                onExcluir={() => excluirNota(item.id)}
+                modoCompacto={modoCompacto}
+                />
+            </TouchableOpacity>
+            </Link>
+              {/* Navegação programática (useRouter): interação (toque) dispara
+              a função abrirDetalhes, que chama router.push */}
+            <TouchableOpacity onPress={() => abrirDetalhes(item.id)}>
+              <Text style={styles.link}>Ver Detalhes</Text>
+            </TouchableOpacity>
           </Animated.View>
         )}
       />
@@ -119,6 +154,12 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, paddingTop: 60, backgroundColor: '#fff' },
   link: { color: '#cdb4db', fontWeight: '600', marginBottom: 12 },
   titulo: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
+  switchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   formNota: { marginBottom: 20 },
   inputTitulo: {
     borderWidth: 1,
@@ -147,16 +188,4 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   textoBotaoAdicionar: { color: '#fff', fontWeight: 'bold' },
-  notaItem: {
-    backgroundColor: '#fff0f5',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#ffc8dd',
-  },
-  notaCabecalho: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  notaTitulo: { fontSize: 16, fontWeight: 'bold' },
-  notaConteudo: { fontSize: 14, color: '#555', marginTop: 4 },
-  notaData: { fontSize: 11, color: '#999', marginTop: 6 },
 });
